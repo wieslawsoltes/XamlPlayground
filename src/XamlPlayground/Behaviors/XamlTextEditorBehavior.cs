@@ -23,16 +23,16 @@ public class XamlTextEditorBehavior : Behavior<TextEditor>
             // TODO: Enable for WebAssembly
             // https://github.com/danipen/TextMateSharp/issues/9
             // https://github.com/AvaloniaUI/AvaloniaEdit/issues/201
-            if (!Compiler.IsBrowser())
-            {
+            //if (!Compiler.IsBrowser())
+            //{
                 _registryOptions = new RegistryOptions(ThemeName.LightPlus);
                 _textMateInstallation = _textEditor.InstallTextMate(_registryOptions);
                 _textMateInstallation.SetGrammar(_registryOptions.GetScopeByLanguageId(_registryOptions.GetLanguageByExtension(".xml").Id));
-            }
-            else
-            {
-                _textEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("XML");
-            }
+            //}
+            //else
+            //{
+            //    _textEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("XML");
+            //}
         }
     }
 }
