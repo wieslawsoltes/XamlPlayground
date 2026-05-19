@@ -772,7 +772,6 @@ public partial class MainViewModel
                 VisualEditorStructureRows = new ObservableCollection<VisualEditorStructureRowViewModel>(rows);
                 var selected = FindNode(roots, _visualEditorSelectedSelector);
                 var usedPassiveFallbackSelection = selected is null;
-                selected ??= roots.FirstOrDefault();
                 SelectedVisualEditorNode = selected;
                 SelectedVisualEditorStructureRow = rows.FirstOrDefault(row => ReferenceEquals(row.Node, selected));
                 var previousSuppressSelectionUpdate = _suppressVisualEditorSourceSelectionUpdate;

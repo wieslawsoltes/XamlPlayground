@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -33,6 +33,7 @@ using Dock.Model.Core.Events;
 using Microsoft.CodeAnalysis;
 using RemotePixelFormat = Avalonia.Remote.Protocol.Viewport.PixelFormat;
 using Avalonia.Remote.Protocol.Viewport;
+using Avalonia.Remote.Protocol.Input;
 using XamlPlayground.Services;
 using XamlPlayground.Services.IntelliSense;
 using XamlPlayground.Services.Preview;
@@ -2930,6 +2931,54 @@ public partial class MainViewModel : ViewModelBase, IDisposable
         }
 
         _remotePreviewService.UpdateViewport(width, height, dpiX, dpiY);
+    }
+
+    public void SendRemotePreviewPointerMoved(double x, double y, InputModifiers[] modifiers)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendPointerMovedAsync(x, y, modifiers);
+        }
+    }
+
+    public void SendRemotePreviewPointerPressed(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendPointerPressedAsync(x, y, button, modifiers);
+        }
+    }
+
+    public void SendRemotePreviewPointerReleased(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendPointerReleasedAsync(x, y, button, modifiers);
+        }
+    }
+
+    public void SendRemotePreviewScroll(double x, double y, double deltaX, double deltaY, InputModifiers[] modifiers)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendScrollAsync(x, y, deltaX, deltaY, modifiers);
+        }
+    }
+
+    public void SendRemotePreviewKeyEvent(bool isDown, Avalonia.Input.Key key, Avalonia.Input.PhysicalKey physicalKey, string? keySymbol, InputModifiers[] modifiers)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendKeyEventAsync(isDown, key, physicalKey, keySymbol, modifiers);
+        }
+    }
+
+    public void SendRemotePreviewTextInput(string text)
+    {
+        if (IsRemotePreviewActive)
+        {
+            _ = _remotePreviewService.SendTextInputAsync(text);
+        }
     }
 
     private static Bitmap? TryCreateRemotePreviewBitmap(FrameMessage frame)

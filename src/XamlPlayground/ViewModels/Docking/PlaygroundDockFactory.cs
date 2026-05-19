@@ -17,7 +17,7 @@ namespace XamlPlayground.ViewModels.Docking;
 
 public sealed class PlaygroundDockFactory : Factory
 {
-    public const string DefaultPerspectiveId = "Default";
+    public const string DefaultPerspectiveId = "Professional";
 
     public static IReadOnlyList<DockPerspectiveDescriptor> PerspectiveDescriptors { get; } =
         BuiltInExtensionProvider.Manifest.Contributions.Perspectives

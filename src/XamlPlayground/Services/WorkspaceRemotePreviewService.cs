@@ -11,6 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Avalonia.Remote.Protocol;
 using Avalonia.Remote.Protocol.Designer;
+using Avalonia.Remote.Protocol.Input;
 using Avalonia.Remote.Protocol.Viewport;
 
 namespace XamlPlayground.Services;
@@ -124,6 +125,36 @@ public sealed class WorkspaceRemotePreviewService : IDisposable
     public void UpdateViewport(double width, double height, double dpiX, double dpiY)
     {
         _session?.UpdateViewport(width, height, dpiX, dpiY);
+    }
+
+    public Task SendPointerMovedAsync(double x, double y, InputModifiers[] modifiers)
+    {
+        return _session?.SendPointerMovedAsync(x, y, modifiers) ?? Task.CompletedTask;
+    }
+
+    public Task SendPointerPressedAsync(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        return _session?.SendPointerPressedAsync(x, y, button, modifiers) ?? Task.CompletedTask;
+    }
+
+    public Task SendPointerReleasedAsync(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        return _session?.SendPointerReleasedAsync(x, y, button, modifiers) ?? Task.CompletedTask;
+    }
+
+    public Task SendScrollAsync(double x, double y, double deltaX, double deltaY, InputModifiers[] modifiers)
+    {
+        return _session?.SendScrollAsync(x, y, deltaX, deltaY, modifiers) ?? Task.CompletedTask;
+    }
+
+    public Task SendKeyEventAsync(bool isDown, Avalonia.Input.Key key, Avalonia.Input.PhysicalKey physicalKey, string? keySymbol, InputModifiers[] modifiers)
+    {
+        return _session?.SendKeyEventAsync(isDown, key, physicalKey, keySymbol, modifiers) ?? Task.CompletedTask;
+    }
+
+    public Task SendTextInputAsync(string text)
+    {
+        return _session?.SendTextInputAsync(text) ?? Task.CompletedTask;
     }
 
     public void Stop()
@@ -328,6 +359,97 @@ internal sealed class RemotePreviewTcpSession : IDisposable
             AssemblyPath = assemblyPath,
             XamlFileProjectPath = xamlFileProjectPath
         });
+    }
+
+    public Task SendPointerMovedAsync(double x, double y, InputModifiers[] modifiers)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new PointerMovedEventMessage { X = x, Y = y, Modifiers = modifiers });
+    }
+
+    public Task SendPointerPressedAsync(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new PointerPressedEventMessage { X = x, Y = y, Button = button, Modifiers = modifiers });
+    }
+
+    public Task SendPointerReleasedAsync(double x, double y, MouseButton button, InputModifiers[] modifiers)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new PointerReleasedEventMessage { X = x, Y = y, Button = button, Modifiers = modifiers });
+    }
+
+    public Task SendScrollAsync(double x, double y, double deltaX, double deltaY, InputModifiers[] modifiers)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new ScrollEventMessage { X = x, Y = y, DeltaX = deltaX, DeltaY = deltaY, Modifiers = modifiers });
+    }
+
+    public Task SendKeyEventAsync(bool isDown, Avalonia.Input.Key key, Avalonia.Input.PhysicalKey physicalKey, string? keySymbol, InputModifiers[] modifiers)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new KeyEventMessage
+        {
+            IsDown = isDown,
+            Key = (Key)key,
+            PhysicalKey = (PhysicalKey)physicalKey,
+            KeySymbol = keySymbol,
+            Modifiers = modifiers
+        });
+    }
+
+    public Task SendTextInputAsync(string text)
+    {
+        IAvaloniaRemoteTransportConnection? connection;
+        lock (_gate)
+        {
+            connection = _connection;
+        }
+        if (connection is null)
+        {
+            return Task.CompletedTask;
+        }
+        return connection.Send(new TextInputEventMessage { Text = text });
     }
 
     public void Dispose()

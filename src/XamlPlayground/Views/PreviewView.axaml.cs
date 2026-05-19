@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
@@ -51,12 +51,16 @@ public partial class PreviewView : UserControl
     public PreviewView()
     {
         InitializeComponent();
+        Focusable = true;
         DataContextChanged += OnPreviewDataContextChanged;
         LayoutUpdated += PreviewViewOnLayoutUpdated;
         AddHandler(PointerPressedEvent, OnPointerPressed, handledEventsToo: true);
         AddHandler(PointerMovedEvent, OnPointerMoved, handledEventsToo: true);
         AddHandler(PointerReleasedEvent, OnPointerReleased, handledEventsToo: true);
+        AddHandler(PointerWheelChangedEvent, OnPointerWheelChanged, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKeyDown, handledEventsToo: true);
+        AddHandler(KeyUpEvent, OnKeyUp, handledEventsToo: true);
+        AddHandler(TextInputEvent, OnTextInput, handledEventsToo: true);
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         AddHandler(DragDrop.DropEvent, OnDrop);
@@ -321,11 +325,68 @@ public partial class PreviewView : UserControl
         viewModel.UpdateVisualEditorPreviewSelectionBounds(bounds);
     }
 
+    private static Avalonia.Remote.Protocol.Input.InputModifiers[] GetInputModifiers(KeyModifiers keyModifiers, PointerPointProperties? properties = null)
+    {
+        var modifiers = new List<Avalonia.Remote.Protocol.Input.InputModifiers>();
+        if (keyModifiers.HasFlag(KeyModifiers.Alt)) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.Alt);
+        if (keyModifiers.HasFlag(KeyModifiers.Control)) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.Control);
+        if (keyModifiers.HasFlag(KeyModifiers.Shift)) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.Shift);
+        if (keyModifiers.HasFlag(KeyModifiers.Meta)) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.Windows);
+        
+        if (properties.HasValue)
+        {
+            var props = properties.Value;
+            if (props.IsLeftButtonPressed) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.LeftMouseButton);
+            if (props.IsRightButtonPressed) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.RightMouseButton);
+            if (props.IsMiddleButtonPressed) modifiers.Add(Avalonia.Remote.Protocol.Input.InputModifiers.MiddleMouseButton);
+        }
+        return modifiers.ToArray();
+    }
+
+    private static Avalonia.Remote.Protocol.Input.MouseButton GetMouseButton(PointerPressedEventArgs e)
+    {
+        var properties = e.GetCurrentPoint(null).Properties;
+        return properties.PointerUpdateKind switch
+        {
+            PointerUpdateKind.LeftButtonPressed => Avalonia.Remote.Protocol.Input.MouseButton.Left,
+            PointerUpdateKind.RightButtonPressed => Avalonia.Remote.Protocol.Input.MouseButton.Right,
+            PointerUpdateKind.MiddleButtonPressed => Avalonia.Remote.Protocol.Input.MouseButton.Middle,
+            _ => Avalonia.Remote.Protocol.Input.MouseButton.None
+        };
+    }
+
+    private static Avalonia.Remote.Protocol.Input.MouseButton GetMouseButton(PointerReleasedEventArgs e)
+    {
+        var properties = e.GetCurrentPoint(null).Properties;
+        return properties.PointerUpdateKind switch
+        {
+            PointerUpdateKind.LeftButtonReleased => Avalonia.Remote.Protocol.Input.MouseButton.Left,
+            PointerUpdateKind.RightButtonReleased => Avalonia.Remote.Protocol.Input.MouseButton.Right,
+            PointerUpdateKind.MiddleButtonReleased => Avalonia.Remote.Protocol.Input.MouseButton.Middle,
+            _ => Avalonia.Remote.Protocol.Input.MouseButton.None
+        };
+    }
+
     private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         var properties = e.GetCurrentPoint(this).Properties;
-        if (DataContext is not MainViewModel viewModel ||
-            viewModel.Control is not { } previewRoot ||
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (viewModel.IsRemotePreviewActive && !viewModel.VisualEditorDesignerMode)
+        {
+            Focus();
+            var point = e.GetPosition(PreviewSurface);
+            var button = GetMouseButton(e);
+            var modifiers = GetInputModifiers(e.KeyModifiers, properties);
+            viewModel.SendRemotePreviewPointerPressed(point.X, point.Y, button, modifiers);
+            e.Handled = true;
+            return;
+        }
+
+        if (viewModel.Control is not { } previewRoot ||
             (!properties.IsLeftButtonPressed &&
              !properties.IsRightButtonPressed &&
              properties.PointerUpdateKind is not PointerUpdateKind.LeftButtonPressed and not PointerUpdateKind.RightButtonPressed))
@@ -465,13 +526,27 @@ public partial class PreviewView : UserControl
 
     private void OnPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (viewModel.IsRemotePreviewActive && !viewModel.VisualEditorDesignerMode)
+        {
+            var remotePoint = e.GetPosition(PreviewSurface);
+            var properties = e.GetCurrentPoint(this).Properties;
+            var modifiers = GetInputModifiers(e.KeyModifiers, properties);
+            viewModel.SendRemotePreviewPointerMoved(remotePoint.X, remotePoint.Y, modifiers);
+            e.Handled = true;
+            return;
+        }
+
         if (_designerDragMode == DesignerDragMode.None)
         {
             return;
         }
 
-        if (DataContext is not MainViewModel viewModel ||
-            !viewModel.VisualEditorDesignerMode)
+        if (!viewModel.VisualEditorDesignerMode)
         {
             if (DataContext is MainViewModel inactiveViewModel)
             {
@@ -513,13 +588,28 @@ public partial class PreviewView : UserControl
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (viewModel.IsRemotePreviewActive && !viewModel.VisualEditorDesignerMode)
+        {
+            var remotePoint = e.GetPosition(PreviewSurface);
+            var properties = e.GetCurrentPoint(this).Properties;
+            var button = GetMouseButton(e);
+            var modifiers = GetInputModifiers(e.KeyModifiers, properties);
+            viewModel.SendRemotePreviewPointerReleased(remotePoint.X, remotePoint.Y, button, modifiers);
+            e.Handled = true;
+            return;
+        }
+
         if (_designerDragMode == DesignerDragMode.None)
         {
             return;
         }
 
-        if (DataContext is not MainViewModel viewModel ||
-            !viewModel.VisualEditorDesignerMode)
+        if (!viewModel.VisualEditorDesignerMode)
         {
             _designerDragMode = DesignerDragMode.None;
             _dragMoved = false;
@@ -596,8 +686,20 @@ public partial class PreviewView : UserControl
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (DataContext is not MainViewModel viewModel ||
-            !viewModel.VisualEditorDesignerMode)
+        if (DataContext is not MainViewModel viewModel)
+        {
+            return;
+        }
+
+        if (viewModel.IsRemotePreviewActive && !viewModel.VisualEditorDesignerMode)
+        {
+            var modifiers = GetInputModifiers(e.KeyModifiers);
+            viewModel.SendRemotePreviewKeyEvent(isDown: true, e.Key, e.PhysicalKey, null, modifiers);
+            e.Handled = true;
+            return;
+        }
+
+        if (!viewModel.VisualEditorDesignerMode)
         {
             return;
         }
@@ -605,6 +707,45 @@ public partial class PreviewView : UserControl
         if (HandleDesignerKeyDown(viewModel, e.Key, e.KeyModifiers))
         {
             DesignerOverlay.Focus();
+            e.Handled = true;
+        }
+    }
+
+    private void OnKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel || !viewModel.IsRemotePreviewActive || viewModel.VisualEditorDesignerMode)
+        {
+            return;
+        }
+
+        var modifiers = GetInputModifiers(e.KeyModifiers);
+        viewModel.SendRemotePreviewKeyEvent(isDown: false, e.Key, e.PhysicalKey, null, modifiers);
+        e.Handled = true;
+    }
+
+    private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel || !viewModel.IsRemotePreviewActive || viewModel.VisualEditorDesignerMode)
+        {
+            return;
+        }
+
+        var point = e.GetPosition(PreviewSurface);
+        var modifiers = GetInputModifiers(e.KeyModifiers);
+        viewModel.SendRemotePreviewScroll(point.X, point.Y, e.Delta.X, e.Delta.Y, modifiers);
+        e.Handled = true;
+    }
+
+    private void OnTextInput(object? sender, TextInputEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel || !viewModel.IsRemotePreviewActive || viewModel.VisualEditorDesignerMode)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(e.Text))
+        {
+            viewModel.SendRemotePreviewTextInput(e.Text);
             e.Handled = true;
         }
     }
@@ -1954,7 +2095,7 @@ public partial class PreviewView : UserControl
         {
             var width = Math.Max(24, Math.Min(size.Width, Math.Max(24, parentBounds.Width - 8)));
             var height = Math.Max(16, Math.Min(parentBounds.Height - 8, Math.Max(siblingBounds.Height, size.Height)));
-            var x = after ? siblingBounds.Right - width / 2 : siblingBounds.Left - width / 2;
+            var x = after ? siblingBounds.Right : siblingBounds.Left - width;
             var y = siblingBounds.Center.Y - height / 2;
             placeholder = new Rect(x, y, width, height);
         }
@@ -1963,7 +2104,7 @@ public partial class PreviewView : UserControl
             var width = Math.Max(24, Math.Min(parentBounds.Width - 8, Math.Max(siblingBounds.Width, size.Width)));
             var height = Math.Max(16, Math.Min(size.Height, Math.Max(16, parentBounds.Height - 8)));
             var x = parentBounds.Left + 4;
-            var y = after ? siblingBounds.Bottom - height / 2 : siblingBounds.Top - height / 2;
+            var y = after ? siblingBounds.Bottom : siblingBounds.Top - height;
             placeholder = new Rect(x, y, width, height);
         }
 
@@ -2326,7 +2467,7 @@ public partial class PreviewView : UserControl
         {
             var width = Math.Max(24, size.Width);
             var height = Math.Max(16, Math.Min(targetBounds.Height - 8, Math.Max(reference.Height, size.Height)));
-            var x = after ? reference.Right - width / 2 : reference.Left - width / 2;
+            var x = after ? reference.Right : reference.Left - width;
             var y = reference.Center.Y - height / 2;
             placeholder = new Rect(x, y, width, height);
         }
@@ -2335,7 +2476,7 @@ public partial class PreviewView : UserControl
             var width = Math.Max(24, targetBounds.Width - 8);
             var height = Math.Max(16, size.Height);
             var x = targetBounds.Left + 4;
-            var y = after ? reference.Bottom - height / 2 : reference.Top - height / 2;
+            var y = after ? reference.Bottom : reference.Top - height;
             placeholder = new Rect(x, y, width, height);
         }
 

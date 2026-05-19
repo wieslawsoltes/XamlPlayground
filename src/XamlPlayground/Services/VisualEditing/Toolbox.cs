@@ -107,6 +107,47 @@ public sealed class ReflectionToolboxContributor : IToolboxContributor
                type.GetConstructor(Type.EmptyTypes) is not null;
     }
 
+    private static string GetDefaultAttributes(Type type)
+    {
+        if (typeof(Button).IsAssignableFrom(type))
+        {
+            return $" Content=\"{type.Name}\"";
+        }
+        if (typeof(CheckBox).IsAssignableFrom(type))
+        {
+            return $" Content=\"{type.Name}\"";
+        }
+        if (typeof(RadioButton).IsAssignableFrom(type))
+        {
+            return $" Content=\"{type.Name}\"";
+        }
+        if (typeof(Label).IsAssignableFrom(type))
+        {
+            return $" Content=\"{type.Name}\"";
+        }
+        if (typeof(TextBlock).IsAssignableFrom(type))
+        {
+            return $" Text=\"{type.Name}\"";
+        }
+        if (typeof(TextBox).IsAssignableFrom(type))
+        {
+            return $" Text=\"{type.Name}\"";
+        }
+        if (type.Name == "HeaderedContentControl" || (type.BaseType != null && type.BaseType.Name == "HeaderedContentControl"))
+        {
+            return $" Header=\"{type.Name}\"";
+        }
+        if (type.Name == "TabItem")
+        {
+            return " Header=\"TabItem\"";
+        }
+        if (type.Name == "Expander")
+        {
+            return " Header=\"Expander\"";
+        }
+        return string.Empty;
+    }
+
     private static ToolboxItemDescriptor CreateItem(Type type, string defaultXmlNamespace)
     {
         var assemblyName = type.Assembly.GetName().Name ?? string.Empty;
@@ -114,9 +155,10 @@ public sealed class ReflectionToolboxContributor : IToolboxContributor
             ? defaultXmlNamespace
             : $"clr-namespace:{type.Namespace};assembly={assemblyName}";
         var elementName = type.Name;
+        var attributes = GetDefaultAttributes(type);
         var defaultXaml = IsAvaloniaControl(type)
-            ? $"<{elementName} />"
-            : $"<local:{elementName} />";
+            ? $"<{elementName}{attributes} />"
+            : $"<local:{elementName}{attributes} />";
 
         return new ToolboxItemDescriptor(
             $"{type.AssemblyQualifiedName}",
