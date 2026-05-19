@@ -505,6 +505,13 @@ public sealed class PlaygroundDockFactory : Factory
                 previewProportion: 1.10,
                 rightProportion: 0.26,
                 bottomProportion: 0.18),
+            "Professional" => CreateProfessionalPerspective(
+                "Professional Designer",
+                ["SolutionExplorer", "VisualStructure", "VisualToolbox"],
+                "SolutionExplorer",
+                ["VisualProperties", "StylesInspector", "BindingsInspector", "ResourcesInspector", "ControlThemes", "VisualAnimations"],
+                "VisualProperties",
+                ["Errors", "AnimationTimelineSheet", "StyleEditor", "BindingEditor", "ResourceEditor", "DiagnosticsCombinedTree", "DiagnosticsLogicalTree", "DiagnosticsVisualTree", "DiagnosticsEvents", "DiagnosticsResources", "DiagnosticsAssets"]),
             _ => CreateWorkspacePerspective(
                 "Default Workspace",
                 [],
@@ -617,6 +624,82 @@ public sealed class PlaygroundDockFactory : Factory
         rootDock.RightPinnedDockables = CreateList<IDockable>();
         rootDock.TopPinnedDockables = CreateList<IDockable>();
         rootDock.BottomPinnedDockables = CreateList<IDockable>();
+        rootDock.FloatingWindowHostMode = DockFloatingWindowHostMode.Default;
+
+        _rootDock = rootDock;
+        return rootDock;
+    }
+
+    private IRootDock CreateProfessionalPerspective(
+        string title,
+        IReadOnlyList<string> leftToolIds,
+        string? leftActiveToolId,
+        IReadOnlyList<string> rightToolIds,
+        string? rightActiveToolId,
+        IReadOnlyList<string> bottomPinnedToolIds,
+        double leftProportion = 0.20,
+        double previewProportion = 0.55,
+        double rightProportion = 0.25)
+    {
+        var editorDock = EnsureEditorDock();
+        var visibleToolIds = new HashSet<string>(
+            leftToolIds.Concat(rightToolIds).Concat(["Preview"]),
+            StringComparer.Ordinal);
+
+        _leftDock = CreateToolDockFromIds("LeftTools", "Workspace", Alignment.Left, leftProportion, leftToolIds, leftActiveToolId);
+        _rightDock = CreateToolDockFromIds("RightTools", "Inspectors", Alignment.Right, rightProportion, rightToolIds, rightActiveToolId);
+        _previewDock = CreateToolDockFromIds("PreviewDock", "Preview", Alignment.Top, previewProportion, ["Preview"], "Preview");
+        
+        // We create a hidden bottom dock so that if a pinned tool is unpinned/restored, it goes here instead of to the right/left dock.
+        _bottomDock = CreateToolDockFromIds("Bottom", "Bottom", Alignment.Bottom, 0.25, [], null);
+        UpdateRestoreDockMap();
+
+        var centerDock = CreateProportionalDock();
+        centerDock.Id = "Center";
+        centerDock.Title = "Center";
+        centerDock.Orientation = Orientation.Vertical;
+        centerDock.IsCollapsable = false;
+        
+        var centerDockables = CreateList<IDockable>();
+        AddProportionalChild(centerDockables, _previewDock);
+        AddProportionalChild(centerDockables, editorDock);
+        centerDock.VisibleDockables = centerDockables;
+        centerDock.ActiveDockable = _previewDock;
+
+        var mainDockables = CreateList<IDockable>();
+        AddProportionalChild(mainDockables, _leftDock);
+        AddProportionalChild(mainDockables, centerDock);
+        AddProportionalChild(mainDockables, _rightDock);
+
+        var mainDock = CreateProportionalDock();
+        mainDock.Id = "Workspace";
+        mainDock.Title = title;
+        mainDock.Orientation = Orientation.Horizontal;
+        mainDock.IsCollapsable = false;
+        mainDock.VisibleDockables = mainDockables;
+        mainDock.ActiveDockable = centerDock;
+
+        var bottomPinned = bottomPinnedToolIds
+            .Select(id => PrepareHiddenTool(id))
+            .ToArray();
+
+        var hiddenDockables = ToolDescriptors
+            .Where(descriptor => !visibleToolIds.Contains(descriptor.Id) && !bottomPinnedToolIds.Contains(descriptor.Id))
+            .Select(descriptor => PrepareHiddenTool(descriptor.Id))
+            .ToArray();
+
+        var rootDock = CreateRootDock();
+        rootDock.Id = "Root";
+        rootDock.Title = "Xaml Playground";
+        rootDock.IsCollapsable = false;
+        rootDock.ActiveDockable = mainDock;
+        rootDock.DefaultDockable = mainDock;
+        rootDock.VisibleDockables = CreateList<IDockable>(mainDock);
+        rootDock.HiddenDockables = CreateList<IDockable>(hiddenDockables);
+        rootDock.LeftPinnedDockables = CreateList<IDockable>();
+        rootDock.RightPinnedDockables = CreateList<IDockable>();
+        rootDock.TopPinnedDockables = CreateList<IDockable>();
+        rootDock.BottomPinnedDockables = CreateList<IDockable>(bottomPinned);
         rootDock.FloatingWindowHostMode = DockFloatingWindowHostMode.Default;
 
         _rootDock = rootDock;

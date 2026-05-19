@@ -138,7 +138,8 @@ public sealed class BuiltInExtensionProvider : IExtensionProvider
                 new CommandContribution("workbench.applyPerspective.Theme", "Theme Editing", "Perspective"),
                 new CommandContribution("workbench.applyPerspective.Bindings", "Bindings and Resources", "Perspective"),
                 new CommandContribution("workbench.applyPerspective.Code", "Code and Errors", "Perspective"),
-                new CommandContribution("workbench.applyPerspective.Preview", "Preview Review", "Perspective")
+                new CommandContribution("workbench.applyPerspective.Preview", "Preview Review", "Perspective"),
+                new CommandContribution("workbench.applyPerspective.Professional", "Professional Designer", "Perspective")
             },
             menus: new[]
             {
@@ -332,6 +333,33 @@ public sealed class BuiltInExtensionProvider : IExtensionProvider
                         "VisualStructure",
                         "StylesInspector",
                         "ResourcesInspector",
+                        "Errors"
+                    }),
+                new PerspectiveContribution(
+                    "Professional",
+                    "Professional Designer",
+                    new[]
+                    {
+                        "SolutionExplorer",
+                        "VisualStructure",
+                        "VisualToolbox",
+                        "VisualProperties",
+                        "StylesInspector",
+                        "BindingsInspector",
+                        "ResourcesInspector",
+                        "ControlThemes",
+                        "VisualAnimations",
+                        "Preview",
+                        "AnimationTimelineSheet",
+                        "StyleEditor",
+                        "BindingEditor",
+                        "ResourceEditor",
+                        "DiagnosticsCombinedTree",
+                        "DiagnosticsLogicalTree",
+                        "DiagnosticsVisualTree",
+                        "DiagnosticsEvents",
+                        "DiagnosticsResources",
+                        "DiagnosticsAssets",
                         "Errors"
                     })
             },
